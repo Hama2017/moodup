@@ -51,7 +51,7 @@ const MoodUpApp = () => {
       case 'my-moodups':
         return <MyMoodUpsPage onActivitySelect={handleActivitySelect} />;
       case 'profile':
-        return <ProfilePage onNavigateToSettings={handleNavigateToSettings} />;
+    return <ProfilePage onNavigateToSettings={handleNavigateToSettings} />;
       case 'settings':
         return <SettingsPage onBack={() => setActiveTab('profile')} />;
       default:

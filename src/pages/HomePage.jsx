@@ -1,6 +1,7 @@
-// pages/HomePage.js - Page d'accueil avec carte interactive
+// pages/HomePage.js - Page d'accueil avec carte Mapbox
 import React from 'react';
 import ActivityCard from '../components/ActivityCard';
+import FinalMapboxTest from '../components/FinalMapboxTest';
 import { activities } from '../data/activities';
 
 const HomePage = ({ onActivitySelect, onNavigateToSearch, onUserProfileSelect }) => {
@@ -21,38 +22,14 @@ const HomePage = ({ onActivitySelect, onNavigateToSearch, onUserProfileSelect })
         </div>
       </div>
 
-      {/* Carte simulée */}
-      <div className="h-80 bg-gradient-to-br from-blue-100 to-green-100 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-500"></div>
-        </div>
-        
-        {/* Points d'activité sur la carte */}
-        {visibleActivities.map((activity, i) => (
-          <div 
-            key={activity.id}
-            className="absolute bg-white rounded-full p-2 shadow-lg hover:shadow-xl transition-all cursor-pointer border-2 border-purple-500"
-            style={{
-              left: `${50 + (i * 10)}%`,
-              top: `${50 + (i * 5)}%`
-            }}
-            onClick={() => onActivitySelect(activity)}
-          >
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs font-bold">{activity.creator[0]}</span>
-            </div>
-            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded-full shadow-sm border border-gray-200">
-              <div className="flex items-center space-x-1">
-                {activity.moods.slice(0, 2).map((mood, j) => (
-                  <span key={j} className="text-xs">{mood.emoji}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-        
-        <div className="absolute bottom-4 left-4 bg-white px-3 py-2 rounded-full shadow-lg">
-          <span className="text-sm font-medium text-gray-700">Le Havre</span>
+      {/* Carte Mapbox */}
+      <div className="px-4 pt-4">
+        <div className="rounded-2xl overflow-hidden shadow-lg">
+<FinalMapboxTest
+  activities={visibleActivities}
+  onActivitySelect={onActivitySelect}
+  height="320px"
+/>
         </div>
       </div>
       
@@ -66,9 +43,9 @@ const HomePage = ({ onActivitySelect, onNavigateToSearch, onUserProfileSelect })
         </div>
         <div className="space-y-3">
           {visibleActivities.slice(0, 2).map(activity => (
-            <ActivityCard 
-              key={activity.id} 
-              activity={activity} 
+            <ActivityCard
+              key={activity.id}
+              activity={activity}
               onActivitySelect={onActivitySelect}
               onUserProfileSelect={onUserProfileSelect}
               currentUser={currentUser}

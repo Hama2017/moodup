@@ -1,11 +1,22 @@
 // components/ActivityDetailModal.jsx - Modal de détail d'une activité
 import React, { useState } from 'react';
 import { MapPin, Clock, Users, Plus, Trash2, UserCheck, UserX, CheckCircle, Send, Map, Share2 } from 'lucide-react';
+import NavigationFullscreen from './NavigationFullscreen';
 
 const ActivityDetailModal = ({ activity, onClose, onUserProfileSelect, currentUser = 'Marie' }) => {
   const [showRequests, setShowRequests] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [showNavigation, setShowNavigation] = useState(false); // Changed from showMapsMenu
   const isMyActivity = activity.creator === currentUser;
+
+  // ✅ Functions moved inside component
+  const handleMapClick = () => {
+    setShowNavigation(true);
+  };
+
+  const handleCloseNavigation = () => {
+    setShowNavigation(false);
+  };
   
   // Simulation du statut de participation de l'utilisateur actuel
   const [isParticipating, setIsParticipating] = useState(false);
@@ -361,7 +372,10 @@ const ActivityDetailModal = ({ activity, onClose, onUserProfileSelect, currentUs
                       <p className="text-sm text-gray-500">Lieu de rendez-vous</p>
                     </div>
                   </div>
-                  <button className="p-2 bg-white rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <button 
+                    onClick={handleMapClick}
+                    className="p-2 bg-white rounded-xl shadow-sm hover:shadow-md transition-all"
+                  >
                     <Map size={16} className="text-purple-600" />
                   </button>
                 </div>
@@ -523,6 +537,18 @@ const ActivityDetailModal = ({ activity, onClose, onUserProfileSelect, currentUs
           </div>
         </div>
       </div>
+
+      {/* Navigation Fullscreen */}
+      {showNavigation && (
+        <NavigationFullscreen
+          activity={activity}
+          destination={{
+            latitude: 49.4944 + (Math.random() - 0.5) * 0.01,
+            longitude: 0.1079 + (Math.random() - 0.5) * 0.01
+          }}
+          onClose={handleCloseNavigation}
+        />
+      )}
     </div>
   );
 };

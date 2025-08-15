@@ -1,13 +1,20 @@
-// components/CreateActivityModal.jsx - Modal de création d'activité
-import React, { useState } from 'react';
+// components/CreateActivityModal.jsx - Modal de création d'activité avec geocoding
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
 import { moods } from '../data/activities';
+import LocationPicker from './LocationPicker';
 
 const CreateActivityModal = ({ onClose }) => {
   const [selectedMoods, setSelectedMoods] = useState([]);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isMystery, setIsMystery] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const locationInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     title: '',
     location: '',
@@ -16,6 +23,9 @@ const CreateActivityModal = ({ onClose }) => {
     maxParticipants: '',
     description: ''
   });
+
+  // Debounce pour l'API de geocoding
+  const [searchTimeout, setSearchTimeout] = useState(null);
 
   const handleMysteryToggle = () => {
     setIsMystery(!isMystery);
@@ -45,12 +55,138 @@ const CreateActivityModal = ({ onClose }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Fonction pour rechercher des adresses avec l'API Mapbox Geocoding
+  const searchLocations = async (query) => {
+    if (!query || query.length < 3) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (!mapboxToken) {
+      console.error('Token Mapbox manquant');
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    
+    try {
+      // API Geocoding de Mapbox pour l'autocomplétion avec tous les types de lieux
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=FR&types=place,locality,neighborhood,address,poi&limit=8&language=fr&proximity=0.1079,49.4944`
+      );
+      
+      const data = await response.json();
+      
+      if (data.features) {
+        const suggestions = data.features.map(feature => ({
+          id: feature.id,
+          text: feature.place_name,
+          placeName: feature.text,
+          context: feature.context,
+          coordinates: feature.center,
+          category: feature.properties?.category || getPlaceCategory(feature)
+        }));
+        
+        setLocationSuggestions(suggestions);
+        setShowSuggestions(suggestions.length > 0);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'adresses:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Fonction pour déterminer la catégorie d'un lieu
+  const getPlaceCategory = (feature) => {
+    const types = feature.place_type;
+    if (types.includes('poi')) return 'poi';
+    if (types.includes('address')) return 'address';
+    if (types.includes('place')) return 'place';
+    if (types.includes('locality')) return 'locality';
+    return 'other';
+  };
+
+  // Fonction pour obtenir l'icône selon la catégorie
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'poi':
+        return '📍'; // Points d'intérêt (restaurants, boutiques, etc.)
+      case 'address':
+        return '🏠'; // Adresses
+      case 'place':
+        return '🏛️'; // Monuments, lieux importants
+      case 'locality':
+        return '🏘️'; // Villes, quartiers
+      default:
+        return '📍';
+    }
+  };
+
+  // Gestion de la saisie dans le champ adresse avec debounce
+  const handleLocationChange = (value) => {
+    updateFormData('location', value);
+    
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Set new timeout pour debounce
+    const timeout = setTimeout(() => {
+      searchLocations(value);
+    }, 300);
+    
+    setSearchTimeout(timeout);
+  };
+
+  // Sélection d'une suggestion
+  const selectLocation = (suggestion) => {
+    updateFormData('location', suggestion.text);
+    setLocationSuggestions([]);
+    setShowSuggestions(false);
+    locationInputRef.current?.blur();
+  };
+
+  // Gestion de la sélection depuis LocationPicker
+  const handleLocationPickerSelect = (locationData) => {
+    updateFormData('location', locationData.address);
+    setShowLocationPicker(false);
+  };
+
+  // Fermer les suggestions si clic à l'extérieur
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target) &&
+        !locationInputRef.current?.contains(event.target)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Cleanup timeout
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
+
   const nextStep = () => {
     if (isMystery) {
-      // Mode mystère : 1 → 2 → 3
       if (currentStep < 3) setCurrentStep(currentStep + 1);
     } else {
-      // Mode normal : 1 → 2 → 3 → 4
       if (currentStep < 4) setCurrentStep(currentStep + 1);
     }
   };
@@ -74,50 +210,17 @@ const CreateActivityModal = ({ onClose }) => {
     return stepTitles[currentStep - 1];
   };
   
-  // Modal de sélection de lieu
+  // Modal de sélection de lieu avec LocationPicker
   if (showLocationPicker) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-        <div className="bg-white rounded-t-3xl w-full max-w-md h-[80vh] animate-slide-up overflow-hidden">
-          <div className="flex justify-between items-center p-6 border-b border-gray-100">
-            <button 
-              onClick={() => setShowLocationPicker(false)}
-              className="text-purple-600 font-medium"
-            >
-              Retour
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900">Choisir un lieu</h2>
-            <button 
-              onClick={() => {
-                updateFormData('location', 'Café Central, Place Gambetta');
-                setShowLocationPicker(false);
-              }}
-              className="text-purple-600 font-medium"
-            >
-              Valider
-            </button>
-          </div>
-          
-          <div className="flex-1 bg-gradient-to-br from-blue-100 to-green-100 relative">
-            <div className="absolute inset-0 opacity-30">
-              <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-500"></div>
-            </div>
-            
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-              <div className="w-8 h-8 border-2 border-purple-600 rounded-full bg-white shadow-lg flex items-center justify-center">
-                <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
-              </div>
-            </div>
-            
-            <div className="absolute bottom-6 left-6 right-6">
-              <div className="bg-white rounded-2xl p-4 shadow-lg">
-                <p className="text-sm text-gray-600 mb-2">Lieu sélectionné</p>
-                <p className="font-medium text-gray-900">Café Central, Place Gambetta</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <LocationPicker
+        onClose={() => setShowLocationPicker(false)}
+        onLocationSelect={handleLocationPickerSelect}
+        initialLocation={{
+          lat: 49.4944,
+          lng: 0.1079
+        }}
+      />
     );
   }
   
@@ -206,15 +309,59 @@ const CreateActivityModal = ({ onClose }) => {
                 </p>
               </div>
               
-              <div className="space-y-1">
+              {/* Champ localisation avec autocomplétion */}
+              <div className="space-y-1 relative">
                 <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Café Central, Place Gambetta"
-                    value={formData.location}
-                    onChange={(e) => updateFormData('location', e.target.value)}
-                    className="flex-1 p-4 bg-gray-50 border-0 rounded-2xl focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all placeholder-gray-400 text-gray-900"
-                  />
+                  <div className="flex-1 relative">
+                    <input 
+                      ref={locationInputRef}
+                      type="text" 
+                      placeholder="Rechercher une adresse..."
+                      value={formData.location}
+                      onChange={(e) => handleLocationChange(e.target.value)}
+                      onFocus={() => formData.location.length >= 3 && setShowSuggestions(true)}
+                      className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all placeholder-gray-400 text-gray-900"
+                    />
+                    
+                    {/* Loading indicator */}
+                    {loadingSuggestions && (
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                      </div>
+                    )}
+                    
+                    {/* Suggestions dropdown */}
+                    {showSuggestions && locationSuggestions.length > 0 && (
+                      <div 
+                        ref={suggestionsRef}
+                        className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-lg z-10 max-h-60 overflow-y-auto"
+                      >
+                        {locationSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            onClick={() => selectLocation(suggestion)}
+                            className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl transition-colors"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                <span className="text-sm">{getCategoryIcon(suggestion.category)}</span>
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900 text-sm">{suggestion.placeName}</p>
+                                <p className="text-xs text-gray-500 truncate">{suggestion.text}</p>
+                              </div>
+                              <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                                {suggestion.category === 'poi' ? 'Lieu' : 
+                                 suggestion.category === 'address' ? 'Adresse' :
+                                 suggestion.category === 'place' ? 'Monument' : 'Ville'}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
                   <button 
                     onClick={() => setShowLocationPicker(true)}
                     className="w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center hover:shadow-md transition-all shadow-sm"
