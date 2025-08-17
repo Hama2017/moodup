@@ -1,53 +1,78 @@
-// features/auth/components/RegisterForm.jsx
-import React from 'react';
+// features/auth/components/RegisterForm.jsx - VERSION SANS useForm
+import React, { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
-import { useForm } from '../../../hooks/useForm';
 import { useAuth } from '../../../hooks/useAuth';
-import { validateRegisterForm } from '../utils/validators';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 
 const RegisterForm = ({ onSuccess }) => {
-  const { register, loading, error } = useAuth();
-  const [showPassword, setShowPassword] = React.useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const { register, loading } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // ✅ État du formulaire simple
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    fullName: '',
+    username: ''
+  });
 
-  const {
-    values,
-    errors,
-    handleChange,
-    handleBlur,
-    handleSubmit
-  } = useForm(
-    {
-      email: '',
-      password: '',
-      confirmPassword: '',
-      fullName: '',
-      username: ''
-    },
-    validateRegisterForm
-  );
+  // ✅ Gestion des changements
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear erreurs quand l'utilisateur tape
+    if (error) setError('');
+    if (successMessage) setSuccessMessage('');
+  };
 
-  const onSubmit = async (formData) => {
+  // ✅ Soumission simple
+  const handleSubmit = async (e) => {
+    e.preventDefault(); // ✅ Empêche le refresh
+    
+    console.log('🔥 DEBUT handleSubmit Register');
+    
     try {
+      setError('');
+      setSuccessMessage('');
+      
+      console.log('🔄 Tentative inscription...');
       await register(formData);
-      onSuccess?.();
+      
+      // ✅ SEULEMENT si succès !
+      console.log('✅ Inscription réussie !');
+      setSuccessMessage('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+      setFormData({
+        email: '', password: '', confirmPassword: '', fullName: '', username: ''
+      });
+      
+      setTimeout(() => {
+        console.log('🔄 Redirection vers login...');
+        onSuccess?.();
+      }, 2000);
+      
     } catch (err) {
-      // Error is handled by AuthContext
+      console.error('❌ Erreur inscription:', err.message);
+      setError(err.message);
+      setSuccessMessage('');
+      console.log('🛑 STOP - Reste sur RegisterForm');
+      // ✅ PAS DE onSuccess() appelé ici !
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <Input
         name="fullName"
         type="text"
         label="Nom complet"
-        value={values.fullName}
+        value={formData.fullName}
         onChange={handleChange}
-        onBlur={handleBlur}
-        error={errors.fullName}
         leftIcon={<User size={18} />}
         placeholder="Marie Dupont"
         autoComplete="name"
@@ -57,10 +82,8 @@ const RegisterForm = ({ onSuccess }) => {
         name="username"
         type="text"
         label="Nom d'utilisateur"
-        value={values.username}
+        value={formData.username}
         onChange={handleChange}
-        onBlur={handleBlur}
-        error={errors.username}
         leftIcon={<span className="text-gray-400">@</span>}
         placeholder="nom_utilisateur"
         autoComplete="username"
@@ -70,10 +93,8 @@ const RegisterForm = ({ onSuccess }) => {
         name="email"
         type="email"
         label="Email"
-        value={values.email}
+        value={formData.email}
         onChange={handleChange}
-        onBlur={handleBlur}
-        error={errors.email}
         leftIcon={<Mail size={18} />}
         placeholder="ton@email.com"
         autoComplete="email"
@@ -83,10 +104,8 @@ const RegisterForm = ({ onSuccess }) => {
         name="password"
         type={showPassword ? 'text' : 'password'}
         label="Mot de passe"
-        value={values.password}
+        value={formData.password}
         onChange={handleChange}
-        onBlur={handleBlur}
-        error={errors.password}
         leftIcon={<Lock size={18} />}
         rightIcon={
           <button
@@ -106,10 +125,8 @@ const RegisterForm = ({ onSuccess }) => {
         name="confirmPassword"
         type={showConfirmPassword ? 'text' : 'password'}
         label="Confirmer le mot de passe"
-        value={values.confirmPassword}
+        value={formData.confirmPassword}
         onChange={handleChange}
-        onBlur={handleBlur}
-        error={errors.confirmPassword}
         leftIcon={<Lock size={18} />}
         rightIcon={
           <button
@@ -124,6 +141,14 @@ const RegisterForm = ({ onSuccess }) => {
         autoComplete="new-password"
       />
 
+      {/* Message de succès */}
+      {successMessage && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-green-600 text-sm">{successMessage}</p>
+        </div>
+      )}
+
+      {/* Erreur locale */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600 text-sm">{error}</p>

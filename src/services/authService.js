@@ -1,79 +1,139 @@
-import { storageService } from "./storageService";
+
+// ============================================================================
+// 2. src/services/authService.js - Version mise à jour
+// ============================================================================
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
+import { api, setToken, removeToken } from '../config/api';
+
 class AuthService {
   constructor() {
-    this.currentUser = storageService.getItem('currentUser');
+    this.currentUser = null;
+    this.initializeAuth();
+  }
+
+  async initializeAuth() {
+    this.currentUser = await this.getStoredUser();
+  }
+
+  // Stockage unifié
+  async setSecureItem(key, value) {
+    const stringValue = JSON.stringify(value);
+    
+    if (Capacitor.isNativePlatform()) {
+      await Preferences.set({ key, value: stringValue });
+    } else {
+      localStorage.setItem(key, stringValue);
+    }
+  }
+
+  async getSecureItem(key) {
+    try {
+      let value;
+      if (Capacitor.isNativePlatform()) {
+        const result = await Preferences.get({ key });
+        value = result.value;
+      } else {
+        value = localStorage.getItem(key);
+      }
+      
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async removeSecureItem(key) {
+    if (Capacitor.isNativePlatform()) {
+      await Preferences.remove({ key });
+    } else {
+      localStorage.removeItem(key);
+    }
   }
 
   async login(email, password) {
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Votre backend attend 'identifier', pas 'email'
+    const response = await api.post('/auth/login', { 
+      identifier: email,  // ← Changement ici
+      password 
+    });
     
-    if (email && password) {
-      const user = {
-        id: '1',
-        email,
-        name: 'Marie Dupont',
-        username: 'marie.dupont',
-        avatar: null,
-        location: 'Le Havre, France',
-        createdAt: new Date().toISOString()
-      };
-      
-      this.currentUser = user;
-      storageService.setItem('currentUser', user);
-      storageService.setItem('authToken', 'fake-jwt-token');
-      
-      return { success: true, user };
-    }
+    const { access_token, user } = response.data;
+
+    await setToken(access_token);
+    await this.setSecureItem('currentUser', user);
+    this.currentUser = user;
     
-    throw new Error('Identifiants invalides');
+    return { success: true, user, token: access_token };
   }
 
   async register(userData) {
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const user = {
-      id: Date.now().toString(),
-      ...userData,
-      createdAt: new Date().toISOString()
+    // Mapper les données du frontend vers le backend
+    const backendData = {
+      username: userData.username,
+      email: userData.email,
+      password: userData.password,
+      confirm_password: userData.confirmPassword,
+      first_name: userData.fullName?.split(' ')[0] || '',
+      last_name: userData.fullName?.split(' ').slice(1).join(' ') || ''
     };
-    
-    this.currentUser = user;
-    storageService.setItem('currentUser', user);
-    storageService.setItem('authToken', 'fake-jwt-token');
-    
-    return { success: true, user };
+
+    const response = await api.post('/auth/register', backendData);
+    return { success: true, user: response.data.user };
   }
 
   async logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.warn('Server logout failed:', error);
+    }
+    
+    await removeToken();
+    await this.removeSecureItem('currentUser');
     this.currentUser = null;
-    storageService.removeItem('currentUser');
-    storageService.removeItem('authToken');
+    
     return { success: true };
   }
 
-  getCurrentUser() {
-    return this.currentUser;
+  async getCurrentUser() {
+    if (this.currentUser) {
+      return this.currentUser;
+    }
+    
+    try {
+      const response = await api.get('/auth/me');
+      this.currentUser = response.data;
+      await this.setSecureItem('currentUser', response.data);
+      return response.data;
+    } catch (error) {
+      await this.logout();
+      return null;
+    }
+  }
+
+  async getStoredUser() {
+    return await this.getSecureItem('currentUser');
   }
 
   isAuthenticated() {
-    return !!this.currentUser && !!storageService.getItem('authToken');
+    return !!this.currentUser;
+  }
+
+  async verifyToken() {
+    try {
+      await api.post('/auth/verify-token');
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async updateProfile(updates) {
-    if (!this.currentUser) {
-      throw new Error('Utilisateur non connecté');
-    }
-
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const updatedUser = { ...this.currentUser, ...updates };
-    this.currentUser = updatedUser;
-    storageService.setItem('currentUser', updatedUser);
-    
-    return { success: true, user: updatedUser };
+    const response = await api.put('/users/me', updates);
+    this.currentUser = response.data;
+    await this.setSecureItem('currentUser', response.data);
+    return { success: true, user: response.data };
   }
 }
 

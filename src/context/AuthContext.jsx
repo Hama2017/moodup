@@ -1,4 +1,6 @@
-// context/AuthContext.jsx - Context d'authentification
+// ============================================================================
+// 1. src/context/AuthContext.jsx - Version Simplifiée
+// ============================================================================
 import React, { createContext, useReducer, useEffect } from 'react';
 import { authService } from '../services/authService';
 
@@ -8,29 +10,23 @@ const authReducer = (state, action) => {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
-    
+        
     case 'SET_USER':
       return { 
         ...state, 
         user: action.payload, 
         isAuthenticated: !!action.payload,
-        loading: false 
+        loading: false
       };
-    
-    case 'SET_ERROR':
-      return { ...state, error: action.payload, loading: false };
-    
-    case 'CLEAR_ERROR':
-      return { ...state, error: null };
-    
+        
     case 'LOGOUT':
       return { 
         ...state, 
         user: null, 
         isAuthenticated: false, 
-        loading: false 
+        loading: false
       };
-    
+        
     default:
       return state;
   }
@@ -39,15 +35,13 @@ const authReducer = (state, action) => {
 const initialState = {
   user: null,
   isAuthenticated: false,
-  loading: true,
-  error: null
+  loading: true
 };
 
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Check if user is already logged in
     const currentUser = authService.getCurrentUser();
     if (currentUser && authService.isAuthenticated()) {
       dispatch({ type: 'SET_USER', payload: currentUser });
@@ -57,32 +51,26 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      dispatch({ type: 'CLEAR_ERROR' });
-      
       const result = await authService.login(email, password);
       dispatch({ type: 'SET_USER', payload: result.user });
-      
       return result;
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-      throw error;
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error; // ✅ Laisse le composant gérer l'erreur
     }
   };
 
   const register = async (userData) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      dispatch({ type: 'CLEAR_ERROR' });
-      
       const result = await authService.register(userData);
-      dispatch({ type: 'SET_USER', payload: result.user });
-      
-      return result;
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return result; // ✅ Pas de connexion auto
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-      throw error;
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error; // ✅ Laisse le composant gérer l'erreur
     }
   };
 
@@ -91,24 +79,20 @@ export const AuthProvider = ({ children }) => {
       await authService.logout();
       dispatch({ type: 'LOGOUT' });
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-    }
-  };
-
-  const updateProfile = async (updates) => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const result = await authService.updateProfile(updates);
-      dispatch({ type: 'SET_USER', payload: result.user });
-      return result;
-    } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
       throw error;
     }
   };
 
-  const clearError = () => {
-    dispatch({ type: 'CLEAR_ERROR' });
+  const updateProfile = async (updates) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const result = await authService.updateProfile(updates);
+      dispatch({ type: 'SET_USER', payload: result.user });
+      return result;
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
+    }
   };
 
   const value = {
@@ -116,8 +100,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    updateProfile,
-    clearError
+    updateProfile
   };
 
   return (

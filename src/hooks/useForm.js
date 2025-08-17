@@ -1,4 +1,3 @@
-
 // hooks/useForm.js - Hook pour la gestion des formulaires
 import { useState, useCallback } from 'react';
 
@@ -59,10 +58,16 @@ export const useForm = (initialValues = {}, validationSchema = null) => {
           await onSubmit(values);
         } catch (error) {
           console.error('Form submission error:', error);
+          // ✅ RE-THROW L'ERREUR pour que le composant puisse la gérer !
+          throw error;
+        } finally {
+          // ✅ Set isSubmitting to false dans finally
+          setIsSubmitting(false);
         }
+      } else {
+        // ✅ Set isSubmitting to false si validation échoue
+        setIsSubmitting(false);
       }
-      
-      setIsSubmitting(false);
     };
   }, [values, validate]);
 

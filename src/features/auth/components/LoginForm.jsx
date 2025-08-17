@@ -1,5 +1,8 @@
-// features/auth/components/LoginForm.jsx
-import React from 'react';
+
+// ============================================================================
+// 2. src/features/auth/components/LoginForm.jsx
+// ============================================================================
+import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useForm } from '../../../hooks/useForm';
 import { useAuth } from '../../../hooks/useAuth';
@@ -8,8 +11,9 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 
 const LoginForm = ({ onSuccess }) => {
-  const { login, loading, error } = useAuth();
-  const [showPassword, setShowPassword] = React.useState(false);
+  const { login, loading } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(''); // ✅ Erreur locale
 
   const {
     values,
@@ -22,12 +26,20 @@ const LoginForm = ({ onSuccess }) => {
     validateLoginForm
   );
 
+  // Clear error when user types
+  const handleInputChange = (e) => {
+    if (error) setError('');
+    handleChange(e);
+  };
+
   const onSubmit = async (formData) => {
     try {
+      setError('');
       await login(formData.email, formData.password);
       onSuccess?.();
     } catch (err) {
-      // Error is handled by AuthContext
+      console.error('❌ Erreur login:', err.message);
+      setError(err.message);
     }
   };
 
@@ -38,7 +50,7 @@ const LoginForm = ({ onSuccess }) => {
         type="email"
         label="Email"
         value={values.email}
-        onChange={handleChange}
+        onChange={handleInputChange}
         onBlur={handleBlur}
         error={errors.email}
         leftIcon={<Mail size={18} />}
@@ -51,7 +63,7 @@ const LoginForm = ({ onSuccess }) => {
         type={showPassword ? 'text' : 'password'}
         label="Mot de passe"
         value={values.password}
-        onChange={handleChange}
+        onChange={handleInputChange}
         onBlur={handleBlur}
         error={errors.password}
         leftIcon={<Lock size={18} />}
@@ -68,6 +80,7 @@ const LoginForm = ({ onSuccess }) => {
         autoComplete="current-password"
       />
 
+      {/* ✅ Erreur locale */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600 text-sm">{error}</p>

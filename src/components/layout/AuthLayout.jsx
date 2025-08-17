@@ -1,17 +1,44 @@
-
-
-// components/layout/AuthLayout.jsx - Layout pour l'authentification
-import React, { useState } from 'react';
+// components/layout/AuthLayout.jsx - Solution Simple avec useRef
+import React, { useState, useRef, useEffect } from 'react';
 import LoginForm from '../../features/auth/components/LoginForm';
 import RegisterForm from '../../features/auth/components/RegisterForm';
-import Button from '../ui/Button';
 
 const AuthLayout = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const hasUserInteracted = useRef(false); // ✅ Track si l'user a changé d'onglet
+  const [isLogin, setIsLogin] = useState(true); // ✅ Démarre sur Login comme voulu
 
+  // Debug logs
+  console.log('🔄 AuthLayout render - isLogin:', isLogin, 'hasUserInteracted:', hasUserInteracted.current);
+
+  const handleLoginSuccess = () => {
+    console.log('✅ handleLoginSuccess appelé !');
+    // Redirection vers dashboard/homepage
+  };
+
+  const handleRegisterSuccess = () => {
+    console.log('✅ handleRegisterSuccess appelé ! Passage au login...');
+    hasUserInteracted.current = true; // ✅ Marque l'interaction
+    setIsLogin(true);
+  };
+
+  // ✅ Fonction pour changer d'onglet (avec tracking)
+  const handleTabChange = (newIsLogin) => {
+    console.log('🔄 Tab change to:', newIsLogin ? 'Login' : 'Register');
+    hasUserInteracted.current = true; // ✅ L'user a interagi
+    setIsLogin(newIsLogin);
+  };
+
+  // ✅ Fonction pour le lien en bas (avec tracking)
   const switchMode = () => {
+    console.log('🔄 Switch mode from:', isLogin ? 'Login' : 'Register');
+    hasUserInteracted.current = true; // ✅ L'user a interagi
     setIsLogin(!isLogin);
   };
+
+  // Debug changements
+  useEffect(() => {
+    console.log('🔄 isLogin changed to:', isLogin);
+  }, [isLogin]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-indigo-100 flex items-center justify-center p-4">
@@ -34,20 +61,20 @@ const AuthLayout = () => {
           {/* Toggle Login/Register */}
           <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
             <button
-              onClick={() => setIsLogin(true)}
+              onClick={() => handleTabChange(true)} // ✅ Avec tracking
               className={`flex-1 py-2 rounded-xl font-medium transition-all ${
-                isLogin 
-                  ? 'bg-white text-purple-600 shadow-sm' 
+                isLogin
+                  ? 'bg-white text-purple-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
               Connexion
             </button>
             <button
-              onClick={() => setIsLogin(false)}
+              onClick={() => handleTabChange(false)} // ✅ Avec tracking
               className={`flex-1 py-2 rounded-xl font-medium transition-all ${
-                !isLogin 
-                  ? 'bg-white text-purple-600 shadow-sm' 
+                !isLogin
+                  ? 'bg-white text-purple-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -57,9 +84,9 @@ const AuthLayout = () => {
 
           {/* Forms */}
           {isLogin ? (
-            <LoginForm onSuccess={() => {}} />
+            <LoginForm onSuccess={handleLoginSuccess} />
           ) : (
-            <RegisterForm onSuccess={() => {}} />
+            <RegisterForm onSuccess={handleRegisterSuccess} />
           )}
 
           {/* Switch entre connexion/inscription */}
@@ -67,7 +94,7 @@ const AuthLayout = () => {
             <p className="text-gray-600">
               {isLogin ? "Pas encore de compte ? " : "Déjà un compte ? "}
               <button
-                onClick={switchMode}
+                onClick={switchMode} // ✅ Avec tracking
                 className="text-purple-600 hover:text-purple-700 font-medium"
               >
                 {isLogin ? "S'inscrire" : "Se connecter"}
